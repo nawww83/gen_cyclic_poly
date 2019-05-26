@@ -43,6 +43,7 @@ def getFactorsFromMaxima(n):
     factor = factor.replace(";", "")
     factor = factor.replace("-x", "+x")
     factor = factor.replace("(+x^", "(x^")
+    factor = factor.replace("-1", "+1")
 
     factors = factor.split('*')
     factors = [i.replace("^","**") for i in factors]
@@ -55,13 +56,13 @@ def doFactors(n):
     if not factors:
         print("Программа Maxima не найдена. Используем возможности SymPy...")
         factors = list(sy.factor(x ** n - 1, modulus = 2).args)
-        print('\n')
-        print(factors)
+        for f in factors:
+            print(f)
         print("Факторизация выполнена с помошью библиотеки SymPy\n")
         return expandMultipleFactor(factors)
     else:
-        print('\n')
-        print(factors)
+        for f in factors:
+            print(f)
         print("Факторизация выполнена в программе Maxima\n")
 
     return expandMultipleFactor(factors)
@@ -70,17 +71,25 @@ def findGenPolys(factors, r):
     candidates = set()
     for n_factors in range(1, len(factors) + 1):
         for combs in it.combinations(factors, n_factors):
-            z = reduce(lambda x, y: sy.expand(x * y, modulus = 2), combs)
-            candidates.add(z)  
-    candidates = list(candidates)
+            degs = [p.as_poly().degree() for p in combs]
+            if sum(degs) != r:
+                continue
+            else:
+                z = reduce(lambda x, y: sy.expand(x * y, modulus = 2), combs)
+                candidates.add(z)  
+    return list(candidates)
 
-    list_polynoms = []
-    for poly in candidates:
-        deg = sy.degree(poly, x)
-        if deg == r:
-            list_polynoms.append(poly)
-
-    return list_polynoms
+def withoutMirrors(polys):
+    result = []
+    uniq = []
+    for p in polys:        
+        cl = p.as_poly().all_coeffs()
+        cl_mirror = cl[::-1]
+        if cl not in uniq:
+            uniq.append(cl)
+            uniq.append(cl_mirror)
+            result.append(p)
+    return result
 
 def getGenMatrix(pp, n, r):
     '''Возвращает порождающую матрицу G циклического кода'''
@@ -132,11 +141,11 @@ def getCheckPoly(gen_poly, n):
 
 
 if __name__== "__main__":
-    print('Генератор циклических кодов')
+    print('Генератор циклических (n, k)-кодов')
     print('---------------------------')
-    print('Введите n')
+    print('Введите длину кода n')
     n = int(input())
-    print('Введите r')
+    print('Введите число проверочных символов r')
     r = int(input())
 
     start_time = time.time()
@@ -144,13 +153,17 @@ if __name__== "__main__":
     print('Факторизация нуль-полинома (x^{}+1) над полем GF(2)...'.format(n))
 
     factors = doFactors(n)
+    print('Поиск порождающих полиномов степени r={}...'.format(r))
     gen_polys = findGenPolys(factors, r)
+    gen_polys = withoutMirrors(gen_polys)
     if not gen_polys:
-        print('Порождающего полинома степени {} не найдено!'.format(r))
+        print('Порождающего полинома степени r={} не найдено!'.format(r))
         exit()
     else:
-        print('Найденные порождающие полиномы степени {}'.format(r))
-        print(gen_polys)
+        print('Найденные порождающие полиномы степени r={} за исключением зеркальных'.format(r))
+        for p in gen_polys:
+            print(p)
+    print('Выбор лучшего полинома по критерию наибольшего кодового расстояния...')
     good_poly, spectrum, d_codes = findTheBestPoly(gen_polys, n, r)
     bestDistance = max(d_codes)
     print('Список кодовых расстояний соответствующих циклических кодов')
