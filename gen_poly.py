@@ -104,19 +104,20 @@ def getGenMatrix(pp, n, r):
     return G.reshape(n - r, n)
 
 def getSpectrum(gen_poly, n, r):
-    x_pows = list()
-    x_pow_i = 1
-    for i in range(1, n - r + 1):
-        x_pows.append(x_pow_i) # 1, x, x^2, ... , x^k-1
-        x_pow_i *= x
+    ''' Возвращает спектр кода по его порождающему полиному g(x) '''
+    ''' Расчет методом полного перебора информационных полиномов (медленно)'''
     code_polys = list()
+    g_x = gen_poly.as_poly(modulus = 2)
+    range_ = [i_ for i_ in range(n - r)]
     for i in range(1, n - r + 1):
-        combs = list(it.combinations(x_pows, i))
-        for comb in combs:
-            pol = 0
-            for term in comb:             
-                pol = pol + term        
-            code_polys.append(sy.expand(pol * gen_poly, modulus = 2))
+        combs = list(it.combinations(range_, i))        
+        for c_ in combs:
+            a_ = [0 for _ in range(n - r)]
+            for index in c_:
+                a_[index] = 1
+            a_x = sy.Poly.from_list(a_, x, modulus = 2)
+            d_ = sy.expand(a_x * g_x)
+            code_polys.append(d_)
     weight = list(str(s.count(1) + s.count(x)) for s in code_polys)
     sp = {'0': 1}
     _sp = Counter(weight)
@@ -127,7 +128,7 @@ def getSpectrum(gen_poly, n, r):
     return sorted(result.items(), key = lambda x: x[0])
 
 def findTheBestPoly(polys, n, r):
-    '''Возвращает полином с максимальным кодовым растоянием'''
+    '''Возвращает порождающий полином с максимальным кодовым растоянием'''
     n_polys = len(polys)
     spectrums = [getSpectrum(polys[x], n, r) for x in range(n_polys)]
     d_codes = [spectrums[x][1][0] for x in range(n_polys)]
@@ -137,6 +138,7 @@ def findTheBestPoly(polys, n, r):
     return bestPoly, spectrums[position], d_codes
 
 def getCheckPoly(gen_poly, n):
+    ''' Возвращает проверочный полином h(x) '''
     return sy.div(x ** n - 1, gen_poly, modulus = 2)[0]
 
 
