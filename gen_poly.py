@@ -4,7 +4,6 @@ from sympy.abc import x
 import numpy as np
 import itertools as it
 from sympy.parsing.sympy_parser import parse_expr
-from collections import Counter
 from functools import reduce
 from collections import OrderedDict
 
@@ -106,25 +105,30 @@ def getGenMatrix(pp, n, r):
 def getSpectrum(gen_poly, n, r):
     ''' Возвращает спектр кода по его порождающему полиному g(x) '''
     ''' Расчет методом полного перебора информационных полиномов (медленно)'''
-    code_polys = list()
+    zeros_ = [0 for _ in range(n - r)]
     g_x = gen_poly.as_poly(modulus = 2)
-    range_ = [i_ for i_ in range(n - r)]
+    powers_ = [i_ for i_ in range(n - r)] # [0, 1, 2, ..., k - 1]
+    sp = dict()
+    for i in range(n + 1):
+        sp[i] = 0
+    sp[0] = 1
     for i in range(1, n - r + 1):
-        combs = list(it.combinations(range_, i))        
+        combs = list(it.combinations(powers_, i)) # i = 1...k
         for c_ in combs:
-            a_ = [0 for _ in range(n - r)]
+            a_ = zeros_.copy()
             for index in c_:
                 a_[index] = 1
             a_x = sy.Poly.from_list(a_, x, modulus = 2)
             d_ = sy.expand(a_x * g_x)
-            code_polys.append(d_)
-    weight = list(str(s.count(1) + s.count(x)) for s in code_polys)
-    sp = {'0': 1}
-    _sp = Counter(weight)
-    sp.update(_sp)
+            sp[d_.count(1) + d_.count(x)] += 1
+    # remove items with zero values
+    filtered = {k: v for k, v in sp.items() if v > 0}
+    sp.clear()
+    sp.update(filtered)
+    # sort dictionary by key
     result = OrderedDict()
-    for key in sorted(sp, key = lambda i: int(i)):
-        result.update({int(key): sp[key]})
+    for key in sorted(sp, key = lambda i: i):
+        result.update({key: sp[key]})
     return sorted(result.items(), key = lambda x: x[0])
 
 def findTheBestPoly(polys, n, r):
